@@ -41,9 +41,11 @@ class LLMGuardrailsShield:
         # Expresiones para deteccion de Prompt Injections y jailbreaks comunes
         self.injection_patterns = [
             re.compile(r"\bignore\b.*\b(all|previous|instructions)\b", re.IGNORECASE),
+            re.compile(r"\bignora(r)?\b.*\b(instrucciones|anteriores|previas)\b", re.IGNORECASE),
             re.compile(r"\bsystem\s+prompt\b.*\b(override|expose|reveal|bypass|reveal)\b", re.IGNORECASE),
             re.compile(r"\b(reveal|expose|override|bypass|show)\b.*\bsystem\s+prompt\b", re.IGNORECASE),
             re.compile(r"\berase\b.*\b(system|previous)\b.*\binstructions\b", re.IGNORECASE),
+            re.compile(r"\b(borra|elimina|destruye|delete|drop|remove)\b.*\b(base\s+de\s+datos|database|db|tabla|table)\b", re.IGNORECASE),
             re.compile(r"\byou\s+are\s+now\s+an\s+unrestricted\b", re.IGNORECASE),
             re.compile(r"\bdan\s+mode\b", re.IGNORECASE),
             re.compile(r"\[\s*system\s*:\s*override\s*\]", re.IGNORECASE)

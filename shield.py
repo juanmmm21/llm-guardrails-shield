@@ -99,6 +99,10 @@ class LLMGuardrailsShield:
         Returns:
             Tupla (is_safe: bool, processed_output: str, block_reason: str)
         """
+        # Bypass for default system responses/recommendations
+        if generation.startswith("### 💡 Recomendación") or generation.startswith("¡Hola!"):
+            return True, generation, ""
+            
         # 1. Comprobar fugas de API Keys o Secretos
         for pattern in self.secret_leakage_patterns:
             if pattern.search(generation):

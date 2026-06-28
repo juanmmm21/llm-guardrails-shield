@@ -119,9 +119,9 @@ class LLMGuardrailsShield:
                 overlap = gen_words.intersection(ctx_words)
                 ratio = len(overlap) / len(gen_words)
                 
-                # Si menos del 15% de los conceptos de la respuesta provienen del contexto original,
+                # Si menos del 8% de los conceptos de la respuesta provienen del contexto original,
                 # se asume que el modelo esta alucinando (inventando hechos no suministrados).
-                if ratio < 0.15:
+                if ratio < 0.08:
                     logger.warning(f"Hallucinacion detectada. Similitud factica: {ratio:.2f}")
                     return False, "", "Salida bloqueada debido a falta de consistencia factica con los documentos fuente (Alucinacion)."
                     

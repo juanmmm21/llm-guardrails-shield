@@ -1,82 +1,82 @@
 # LLM Guardrails Shield
 
-Cortafuegos de seguridad bidireccional modular (Guardrails) disenado para interceptar, evaluar y mitigar riesgos operacionales en la interaccion con modelos de lenguaje (LLMs) tanto en la entrada (Prompts de usuarios) como en la salida (generaciones del modelo).
+Modular bidirectional security firewall (Guardrails) designed to intercept, evaluate, and mitigate operational risks in interactions with language models (LLMs), on both input (user prompts) and output (model generations).
 
-Este sistema garantiza el cumplimiento de politicas de privacidad, evita ataques ciberneticos dirigidos a anular directrices (Jailbreaks) y asegura la veracidad de la informacion devuelta por el LLM en arquitecturas de Generacion Aumentada por Recuperacion (RAG), bloqueando alucinaciones y fugas accidentales de secretos.
+This system ensures compliance with privacy policies, prevents cyberattacks aimed at bypassing guidelines (jailbreaks), and safeguards the accuracy of information returned by the LLM in Retrieval-Augmented Generation (RAG) architectures, blocking hallucinations and accidental secret leaks.
 
-## Arquitectura de Evaluacion Bidireccional
+## Bidirectional Evaluation Architecture
 
-El cortafuegos opera de manera síncrona en el pipeline de datos mediante dos capas independientes de inspeccion automatica.
+The firewall operates synchronously in the data pipeline through two independent layers of automatic inspection.
 
 ```mermaid
 flowchart TD
-    RawPrompt[Prompt del Usuario] --> InputShield[Input Safeguards]
+    RawPrompt[User Prompt] --> InputShield[Input Safeguards]
     
-    subgraph InputShield [Guardrail de Entrada]
+    subgraph InputShield [Input Guardrail]
         direction TB
-        InjectionCheck{¿Prompt Injection / Jailbreak?} -->|Si| BlockInput[Bloquear Entrada]
-        InjectionCheck -->|No| ToxicityCheck{¿Lenguaje Ofensivo?}
-        ToxicityCheck -->|Si| BlockInput
-        ToxicityCheck -->|No| PIIRedact[PII Redactor - Emails & Telefonos]
-        PIIRedact --> CleanPrompt[Prompt Anonimizado y Seguro]
+        InjectionCheck{Prompt Injection / Jailbreak?} -->|Yes| BlockInput[Block Input]
+        InjectionCheck -->|No| ToxicityCheck{Offensive Language?}
+        ToxicityCheck -->|Yes| BlockInput
+        ToxicityCheck -->|No| PIIRedact[PII Redactor - Emails & Phone Numbers]
+        PIIRedact --> CleanPrompt[Anonymized, Safe Prompt]
     end
     
-    CleanPrompt --> LLM[Procesamiento del LLM]
-    LLM --> RawOutput[Texto Generado]
+    CleanPrompt --> LLM[LLM Processing]
+    LLM --> RawOutput[Generated Text]
     RawOutput --> OutputShield[Output Safeguards]
     
-    subgraph OutputShield [Guardrail de Salida]
+    subgraph OutputShield [Output Guardrail]
         direction TB
-        SecretCheck{¿Fuga de API Keys / Credenciales?} -->|Si| BlockOutput[Bloquear Salida]
-        SecretCheck -->|No| RAGCheck{¿Tiene Contexto RAG?}
-        RAGCheck -->|No| ReturnSafe[Retornar Respuesta]
-        RAGCheck -->|Si| FactCheck{¿Similitud Factica >= 15%?}
+        SecretCheck{API Key / Credential Leak?} -->|Yes| BlockOutput[Block Output]
+        SecretCheck -->|No| RAGCheck{Has RAG Context?}
+        RAGCheck -->|No| ReturnSafe[Return Response]
+        RAGCheck -->|Yes| FactCheck{Factual Similarity >= 15%?}
         FactCheck -->|No| BlockOutput
-        FactCheck -->|Si| ReturnSafe
+        FactCheck -->|Yes| ReturnSafe
     end
     
-    BlockInput --> ErrorResponse[Retornar Mensaje de Seguridad]
+    BlockInput --> ErrorResponse[Return Security Message]
     BlockOutput --> ErrorResponse
 ```
 
-### 1. Guardrail de Entrada (Input Safeguards)
+### 1. Input Guardrail (Input Safeguards)
 
-Antes de enviar la consulta al LLM o al enrutador, el prompt es analizado por los siguientes filtros heurísticos:
+Before the query is sent to the LLM or the router, the prompt is analyzed by the following heuristic filters:
 
-*   **Deteccion de Prompt Injection y Jailbreaks:** Escanea el texto contra patrones compilados de expresiones regulares buscando firmas de ataques clasicos, anulacion de prompts del sistema (ej: `"ignore all previous instructions"`), llamadas al modo DAN (`"DAN mode"`) o comandos de override directo del prompt de sistema `[system: override]`.
-*   **Filtro de Lenguaje Ofensivo:** Busca correspondencias explicitas a nivel de frontera de palabra (`\b{termino}\b`) contra una lista personalizable de palabras toxicas en espanol, previniendo abusos en interfaces conversacionales.
-*   **Redaccion de Informacion de Identificacion Personal (PII):** Anonimiza datos sensibles reemplazandolos por placeholders (`[EMAIL]` y `[PHONE]`) para evitar la exposicion involuntaria de datos a APIs externas.
-    *   *Emails Regex:* `\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b`
-    *   *Telefonos Regex:* `\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,3}\)?[-.\s]?\d{3}[-.\s]?\d{3,4}\b` (disenada para capturar formatos telefonicos espanoles con o sin prefijo internacional e intervalos de espaciado o guiones).
+*   **Prompt Injection and Jailbreak Detection:** Scans the text against compiled regular-expression patterns looking for signatures of classic attacks, system-prompt overrides (e.g. `"ignore all previous instructions"`), calls to DAN mode (`"DAN mode"`), or direct system-prompt override commands `[system: override]`.
+*   **Offensive Language Filter:** Looks for explicit word-boundary matches (`\b{term}\b`) against a customizable list of toxic words in Spanish, preventing abuse in conversational interfaces.
+*   **Personally Identifiable Information (PII) Redaction:** Anonymizes sensitive data by replacing it with placeholders (`[EMAIL]` and `[PHONE]`) to prevent inadvertent exposure of data to external APIs.
+    *   *Email regex:* `\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b`
+    *   *Phone regex:* `\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,3}\)?[-.\s]?\d{3}[-.\s]?\d{3,4}\b` (designed to capture Spanish phone formats with or without an international prefix and spacing/hyphen intervals).
 
-### 2. Guardrail de Salida (Output Safeguards)
+### 2. Output Guardrail (Output Safeguards)
 
-Una vez que el modelo devuelve una respuesta, esta se somete a controles estrictos de seguridad antes de ser servida al cliente:
+Once the model returns a response, it goes through strict security checks before being served to the client:
 
-*   **Prevencion de Fugas de Secretos (Secret Leakage Block):** Identifica expresiones de seguridad como tokens de autenticacion de OpenAI (`sk-...`), credenciales de la consola de Google (`AIzaSy...`) o patrones generales de almacenamiento de variables de configuracion (`password=...`, `apikey=...`). De encontrar coincidencias, se anula la entrega para evitar el compromiso de infraestructura.
-*   **Control de Alucinacion y Consistencia Factica (Fact-Checking RAG):** Valida la alineacion de la respuesta respecto a los documentos que sirvieron como contexto de busqueda. 
-    1.  Se extraen los conjuntos de palabras unicas con longitud mayor o igual a 4 caracteres de la generacion ($V_{\text{gen}}$) y del contexto RAG suministrado ($V_{\text{ctx}}$).
-    2.  Se calcula el indice de consistencia factica:
+*   **Secret Leakage Prevention (Secret Leakage Block):** Identifies security expressions such as OpenAI authentication tokens (`sk-...`), Google console credentials (`AIzaSy...`), or general configuration-variable storage patterns (`password=...`, `apikey=...`). If a match is found, delivery is blocked to prevent infrastructure compromise.
+*   **Hallucination and Factual Consistency Control (Fact-Checking RAG):** Validates the response's alignment with the documents that served as search context.
+    1.  Sets of unique words with length greater than or equal to 4 characters are extracted from the generation ($V_{\text{gen}}$) and from the supplied RAG context ($V_{\text{ctx}}$).
+    2.  The factual consistency index is computed:
         $$R = \frac{|V_{\text{gen}} \cap V_{\text{ctx}}|}{|V_{\text{gen}}|}$$
-    3.  Si $R < 0.15$ (menos del 15% de los conceptos de la respuesta estan respaldados por las fuentes de informacion RAG), se asume que el modelo ha alucinado o introducido datos falsos, procediendo al bloqueo inmediato de la salida.
+    3.  If $R < 0.15$ (fewer than 15% of the concepts in the response are backed by the RAG source documents), the model is assumed to have hallucinated or introduced false data, and the output is immediately blocked.
 
-## Conexión con el Ecosistema
+## Connection to the Ecosystem
 
-Este escudo se integra transversalmente en el ecosistema de la siguiente forma:
-1.  **hybrid-search-retrieval-pipeline:** Suministra el contexto factual (documentos recuperados de NanoVectorDB y BM25) para alimentar el validador de salida y comprobar la tasa de alucinaciones.
-2.  **orchestra-agents / secure-tool-runtime:** Los prompts de entrada de los agentes y los resultados arrojados por las ejecuciones de herramientas en consola pasan previamente por este filtro para garantizar que no existan intentos de escalado de privilegios u ofensas en el ciclo ReAct.
+This shield integrates across the ecosystem as follows:
+1.  **hybrid-search-retrieval-pipeline:** Supplies the factual context (documents retrieved from NanoVectorDB and BM25) to feed the output validator and check the hallucination rate.
+2.  **orchestra-agents / secure-tool-runtime:** Agent input prompts and the results returned by console tool executions pass through this filter beforehand, to guarantee there are no privilege-escalation attempts or offenses in the ReAct cycle.
 
-## Estructura del Proyecto
+## Project Structure
 
-*   `shield.py`: Implementacion de la clase `LLMGuardrailsShield` con los metodos de PII, inyecciones, toxicidad y fact-checking.
-*   `test_shield.py`: Suite de test unitarios que verifican de forma exhaustiva las validaciones bajo casos extremos (inyecciones encubiertas, telefonos complejos, alucinacion controlada y fugas de sk-keys).
-*   `example.py`: Script de demostracion interactiva que corre flujos de prueba ofensivos, inyecciones RAG y fugas, visualizando que entra, que sale y las razones detalladas del cortafuegos para intervenir.
+*   `shield.py`: Implementation of the `LLMGuardrailsShield` class with the PII, injection, toxicity, and fact-checking methods.
+*   `test_shield.py`: Unit test suite that thoroughly verifies validations under edge cases (covert injections, complex phone numbers, controlled hallucination, and sk-key leaks).
+*   `example.py`: Interactive demo script that runs offensive test flows, RAG injections, and leaks, showing what goes in, what comes out, and the firewall's detailed reasons for intervening.
 
-## Instalacion y Uso
+## Installation and Usage
 
-### 1. Activar el Entorno Local e Instalar Dependencias
+### 1. Activate the Local Environment and Install Dependencies
 
-Dado que el modulo utiliza expresiones regulares nativas y estructuras livianas de validacion, no requiere aceleracion por hardware:
+Since the module uses native regular expressions and lightweight validation structures, it requires no hardware acceleration:
 
 ```bash
 python3 -m venv .venv
@@ -84,18 +84,18 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Ejecutar Pruebas de Seguridad Automatizadas
+### 2. Run Automated Security Tests
 
-La suite de test valida las politicas de filtrado de PII, inyeccion y consistencia factica:
+The test suite validates the PII filtering, injection, and factual consistency policies:
 
 ```bash
 .venv/bin/python -m unittest test_shield.py
 ```
 
-### 3. Ejecutar la Demostracion de Cortafuegos
+### 3. Run the Firewall Demo
 
 ```bash
 .venv/bin/python example.py
 ```
 
-El script simula ataques y situaciones reales en tiempo real, ilustrando como el cortafuegos purifica un prompt antes de la inferencia y restringe la devolucion de respuestas cuando detecta secretos expuestos o alucinaciones RAG.
+The script simulates real-time attacks and situations, illustrating how the firewall purifies a prompt before inference and restricts the return of responses when it detects exposed secrets or RAG hallucinations.

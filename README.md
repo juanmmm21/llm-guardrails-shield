@@ -72,6 +72,57 @@ This shield integrates across the ecosystem as follows:
 *   `test_shield.py`: Unit test suite that thoroughly verifies validations under edge cases (covert injections, complex phone numbers, controlled hallucination, and sk-key leaks).
 *   `example.py`: Interactive demo script that runs offensive test flows, RAG injections, and leaks, showing what goes in, what comes out, and the firewall's detailed reasons for intervening.
 
+## Prompt-injection detection, measured
+
+Since `0.1.0` input checking has two layers, selectable with
+`LLMGuardrailsShield(injection_detector=...)`:
+
+*   **`rules`**: 21 regular expressions for overrides ("ignore/forget the previous instructions"),
+    prompt extraction ("print the prompt above"), forced role changes ("now you are…") and known
+    jailbreak markers, in English, Spanish and German.
+*   **`classifier`**: logistic regression over hashed word uni/bigrams and character 3–5-grams
+    (pure NumPy, `injection.py`). It trains in about two seconds on first use from the data
+    shipped in the package: the *train* split of
+    [deepset/prompt-injections](https://huggingface.co/datasets/deepset/prompt-injections) plus
+    1,200 benign questions from the *train* splits of NQ-open and HotpotQA. The threshold (0.58)
+    was chosen by 5-fold cross-validation on that training data, never on the test split.
+*   **`hybrid`** (default): blocks if either layer fires.
+
+`detect_injection(text)` returns which layer fired, the rule and the classifier score.
+
+**Results** (`python -m llm_guardrails_shield.evaluate`; Python 3.13, x86_64 container, 4 vCPU,
+NumPy 2; injection = positive class):
+
+| deepset/prompt-injections *test* (116 texts, 60 injections) | Precision | Recall | F1 |
+| --- | --- | --- | --- |
+| shield before 0.1.0 (9 English/Spanish rules) | 1.000 | 0.083 | 0.154 |
+| `rules` | 1.000 | 0.233 | 0.378 |
+| `classifier` | 1.000 | 0.733 | 0.846 |
+| **`hybrid`** | **1.000** | **0.750** | **0.857** |
+
+| False positives on benign questions | `rules` | `classifier` / `hybrid` |
+| --- | --- | --- |
+| NQ-open *validation*, 1,000 real Google queries | 0 (0.0 %) | 1 (0.1 %) |
+| HotpotQA *validation*, 500 questions | 0 (0.0 %) | 0 (0.0 %) |
+
+Out of distribution — [jackhhao/jailbreak-classification](https://huggingface.co/datasets/jackhhao/jailbreak-classification)
+*test* (262 prompts, 139 jailbreaks; not shipped, not used for training):
+
+| Detector | Precision | Recall | F1 |
+| --- | --- | --- | --- |
+| `rules` | 1.000 | 0.410 | 0.582 |
+| `hybrid` | 0.698 | 0.950 | 0.805 |
+
+Read these honestly: deepset counts "I want you to act as an interviewer" as an injection, while
+the jailbreak dataset counts long role-play prompts as benign, so the classifier learns deepset's
+definition and over-flags role-play elsewhere. Without the benign questions in training the
+classifier flagged 8.2 % of NQ-open and 18 % of HotpotQA questions; that is why they are there.
+Use `rules` where a false block is expensive (a personal assistant reading its owner's messages)
+and `hybrid` for untrusted input (web pages, e-mail, tool output).
+
+The CI fails if the `hybrid` precision or recall on the test split drop more than 0.02 below
+`llm_guardrails_shield/data/baseline_test.json`.
+
 ## Using it as a package
 
 Since `0.1.0` the code lives in the `llm_guardrails_shield` package and the repository is

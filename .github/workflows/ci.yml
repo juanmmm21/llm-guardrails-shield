@@ -18,3 +18,5 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: pytest -q
+      - name: Prompt-injection regression gate (deepset test split)
+        run: python -m llm_guardrails_shield.evaluate --gate llm_guardrails_shield/data/baseline_test.json

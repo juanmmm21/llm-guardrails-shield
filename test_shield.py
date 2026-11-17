@@ -1,5 +1,5 @@
 import unittest
-from shield import LLMGuardrailsShield
+from llm_guardrails_shield.shield import LLMGuardrailsShield
 
 
 class TestLLMGuardrailsShield(unittest.TestCase):

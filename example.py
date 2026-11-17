@@ -21,10 +21,10 @@ def run_demo() -> None:
         print(f"Prompt {i} Original: '{p}'")
         is_safe, processed, reason = shield.validate_input(p)
         if is_safe:
-            print(f"  -> ESTADO: SEGURO (Autorizado)")
+            print("  -> ESTADO: SEGURO (Autorizado)")
             print(f"  -> Prompt Procesado (PII Anonimizado): '{processed}'\n")
         else:
-            print(f"  -> ESTADO: BLOQUEADO (Peligro)")
+            print("  -> ESTADO: BLOQUEADO (Peligro)")
             print(f"  -> Motivo de Bloqueo: {reason}\n")
             
     # 2. Simular validacion de salida (Output Guardrail)
